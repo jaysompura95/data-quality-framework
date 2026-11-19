@@ -1,0 +1,34 @@
+# Core identity & structure checks (hand-written, on top of the auto-generated ones)
+checks:
+  - name: contacts_org_not_null
+    type: null_check
+    table: contacts
+    column: organisation_id
+    severity: ERROR
+    description: Every contact must belong to a tenant.
+
+  - name: accounts_org_not_null
+    type: null_check
+    table: accounts
+    column: organisation_id
+    severity: ERROR
+
+  - name: accounts_unique_key
+    type: unique_key
+    table: accounts
+    columns: [organisation_id, account_id]
+    severity: ERROR
+
+  - name: advisors_unique_key
+    type: unique_key
+    table: advisors
+    columns: [organisation_id, advisor_id]
+    severity: ERROR
+
+  - name: accounts_match_portfolios
+    type: row_count_reconciliation
+    table: accounts
+    reference_table: portfolios
+    tolerance: 0
+    severity: WARNING
+    description: Every account should have exactly one portfolio.

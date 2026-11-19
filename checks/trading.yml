@@ -1,0 +1,32 @@
+# Trading & valuation checks
+checks:
+  - name: transactions_account_same_tenant
+    type: cross_tenant_check
+    table: transactions
+    column: account_id
+    ref_table: accounts
+    ref_column: account_id
+    severity: ERROR
+
+  - name: transactions_amount_range
+    type: range_check
+    table: transactions
+    column: amount
+    min: -50000
+    max: 100000
+    severity: WARNING
+    description: Unusually large transactions should be reviewed, not block the pipeline.
+
+  - name: holdings_quantity_positive
+    type: range_check
+    table: holdings
+    column: quantity
+    min: 0
+    severity: ERROR
+
+  - name: statements_balance_positive
+    type: range_check
+    table: statements
+    column: ending_balance
+    min: 0
+    severity: ERROR
