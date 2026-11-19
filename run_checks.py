@@ -4,12 +4,13 @@ Test runner. ERROR failures halt the pipeline (exit code 1); WARNING failures on
     python run_checks.py                      # manual (checks/) + auto-generated checks
     python run_checks.py --auto-only          # auto-generated multi-tenancy checks only
     python run_checks.py --db other.db --config other_checks/
+    python run_checks.py --clickhouse --clickhouse-url http://localhost:8123
 """
 import argparse
 import logging
 import sys
 
-from dq.adapters import SQLiteAdapter
+from dq.adapters import ClickHouseAdapter, SQLiteAdapter
 from dq.autogen import generate_default_checks, merge
 from dq.engine import Engine
 from dq.parser import discover
@@ -17,8 +18,11 @@ from dq.parser import discover
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--db", default="data/wealth.db")
-    ap.add_argument("--config", default="checks")
+    ap.add_argument("--db", default="data/wealth.db", help="SQLite database path")
+    ap.add_argument("--clickhouse", action="store_true", help="Execute against ClickHouse database")
+    ap.add_argument("--clickhouse-url", default="http://localhost:8123", help="ClickHouse HTTP URL")
+    ap.add_argument("--clickhouse-db", default="default", help="ClickHouse database name")
+    ap.add_argument("--config", default="checks", help="Folder containing YAML check definitions")
     ap.add_argument("--auto-only", action="store_true", help="skip YAML checks, run only auto-generated ones")
     ap.add_argument("--no-auto", action="store_true", help="skip auto-generated checks")
     args = ap.parse_args(argv)
@@ -34,10 +38,17 @@ def main(argv=None):
                 print("  -", p)
             return 2
 
-    with SQLiteAdapter(args.db) as adapter:
+    adapter_ctx = (
+        ClickHouseAdapter(url=args.clickhouse_url, database=args.clickhouse_db)
+        if args.clickhouse
+        else SQLiteAdapter(args.db)
+    )
+    target_desc = f"ClickHouse ({args.clickhouse_url}/{args.clickhouse_db})" if args.clickhouse else args.db
+
+    with adapter_ctx as adapter:
         auto = [] if args.no_auto else generate_default_checks(adapter)
         checks = merge(manual, auto)
-        print(f"Running {len(checks)} checks ({len(manual)} declared, {len(checks) - len(manual)} auto) on {args.db}\n")
+        print(f"Running {len(checks)} checks ({len(manual)} declared, {len(checks) - len(manual)} auto) on {target_desc}\n")
         report = Engine(adapter).run(checks)
 
     passed = sum(r.passed for r in report.results)
