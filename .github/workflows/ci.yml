@@ -1,0 +1,15 @@
+name: data-quality-ci
+on: [push, pull_request]
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Block invalid test declarations
+        run: python validate_checks.py checks/
+      - name: Unit tests (no database server needed)
+        run: python -m unittest discover -v
